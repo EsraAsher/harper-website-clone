@@ -19,6 +19,7 @@ interface Routine {
 export default function RoutinePage() {
   // Basic fields
   const [petType, setPetType] = useState<string>("");
+  const [customPetType, setCustomPetType] = useState<string>("");
   const [apartmentSize, setApartmentSize] = useState<string>("");
   
   // New pet information fields
@@ -59,10 +60,20 @@ export default function RoutinePage() {
     return forbiddenPetTypes.some(forbidden => lowerInput.includes(forbidden));
   };
 
+  // Get the actual pet type to use (custom or predefined)
+  const getActualPetType = () => {
+    if (petType === "other" && customPetType) {
+      return customPetType;
+    }
+    return petType;
+  };
+
   const handleGenerate = async () => {
+    const actualPetType = getActualPetType();
+    
     // Check for joke inputs
-    if (checkForJokes(petType)) {
-      setJokeMessage(`😂 Nice try! I can't create a care routine for a ${petType}. Please choose an actual pet.`);
+    if (checkForJokes(actualPetType)) {
+      setJokeMessage(`😂 Nice try! I can't create a care routine for a ${actualPetType}. Please choose an actual pet.`);
       setError("");
       setRoutine(null);
       return;
@@ -70,7 +81,7 @@ export default function RoutinePage() {
     
     setJokeMessage("");
 
-    if (!petType || !apartmentSize || !age || !size || !activityLevel || !balconyAccess || !familyMembers || !workSchedule || !dietType || !mealsPerDay) {
+    if (!actualPetType || !apartmentSize || !age || !size || !activityLevel || !balconyAccess || !familyMembers || !workSchedule || !dietType || !mealsPerDay) {
       setError("Please fill in all required fields");
       return;
     }
@@ -82,7 +93,7 @@ export default function RoutinePage() {
       // Construct detailed prompt for Gemini
       const detailedPrompt = `Generate a personalized daily and weekly pet care routine with the following details:
 
-Pet Type: ${petType}
+Pet Type: ${actualPetType}
 Breed: ${breed || "Not specified"}
 Age: ${age}
 Size/Weight: ${size}
@@ -128,7 +139,7 @@ Format the output in a friendly, readable manner with clear sections and emojis 
           // Parse the Gemini response into structured format
           setRoutine({
             id: Date.now(),
-            petType,
+            petType: actualPetType,
             apartmentSize,
             morningRoutine: data.routine,
             afternoonRoutine: "",
@@ -140,7 +151,12 @@ Format the output in a friendly, readable manner with clear sections and emojis 
           setError("Failed to generate routine. Please try again.");
         }
       } else {
-        setError("Failed to fetch routine. Please try again.");
+        const errorData = await response.json().catch(() => ({}));
+        if (errorData.code === 'MISSING_API_KEY') {
+          setError("⚠️ Gemini API key not configured. Please contact the administrator to add GEMINI_API_KEY to environment variables.");
+        } else {
+          setError("Failed to fetch routine. Please try again.");
+        }
       }
     } catch (err) {
       setError("An error occurred. Please try again.");
@@ -152,11 +168,13 @@ Format the output in a friendly, readable manner with clear sections and emojis 
   const handleDownloadPDF = () => {
     if (!routine) return;
 
+    const actualPetType = getActualPetType();
+
     const content = `
 PawSpace - Apartment Pet Care Routine
 =====================================
 
-Pet Type: ${petType.toUpperCase()}
+Pet Type: ${actualPetType.toUpperCase()}
 Breed: ${breed || "Not specified"}
 Age: ${age}
 Size: ${size}
@@ -181,14 +199,14 @@ Visit: https://pawspace.in
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `pawspace-routine-${petType}-${apartmentSize}-${Date.now()}.txt`;
+    a.download = `pawspace-routine-${actualPetType}-${apartmentSize}-${Date.now()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const isFormValid = petType && apartmentSize && age && size && activityLevel && balconyAccess && familyMembers && workSchedule && dietType && mealsPerDay;
+  const isFormValid = getActualPetType() && apartmentSize && age && size && activityLevel && balconyAccess && familyMembers && workSchedule && dietType && mealsPerDay;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -217,7 +235,7 @@ Visit: https://pawspace.in
                 {/* Pet Type Selection */}
                 <div className="mb-8">
                   <h3 className="text-xl font-semibold text-foreground mb-4">Select Your Pet Type *</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <button
                       onClick={() => setPetType("dog")}
                       className={`flex items-center gap-4 p-6 border-2 rounded-xl transition-all ${
@@ -261,7 +279,45 @@ Visit: https://pawspace.in
                         <CheckCircle className="w-5 h-5 text-primary ml-auto" />
                       )}
                     </button>
+
+                    <button
+                      onClick={() => setPetType("other")}
+                      className={`flex items-center gap-4 p-6 border-2 rounded-xl transition-all ${
+                        petType === "other"
+                          ? "border-primary bg-primary/5 shadow-md"
+                          : "border-border hover:border-primary/50 hover:bg-secondary"
+                      }`}
+                    >
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        petType === "other" ? "bg-primary/10" : "bg-secondary"
+                      }`}>
+                        <span className={`text-2xl ${petType === "other" ? "text-primary" : "text-muted-foreground"}`}>🐾</span>
+                      </div>
+                      <div className="text-left">
+                        <div className="font-semibold text-foreground">Other Pet</div>
+                        <div className="text-sm text-muted-foreground">Custom pet type</div>
+                      </div>
+                      {petType === "other" && (
+                        <CheckCircle className="w-5 h-5 text-primary ml-auto" />
+                      )}
+                    </button>
                   </div>
+
+                  {/* Custom Pet Type Input */}
+                  {petType === "other" && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        What type of pet do you have? *
+                      </label>
+                      <input
+                        type="text"
+                        value={customPetType}
+                        onChange={(e) => setCustomPetType(e.target.value)}
+                        placeholder="e.g., Rabbit, Hamster, Bird, Fish, Guinea Pig"
+                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Apartment Size Selection */}

@@ -77,3 +77,90 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { prompt } = body;
+
+    if (!prompt) {
+      return NextResponse.json(
+        { error: 'Prompt is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if Gemini API key is configured
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { 
+          error: 'Gemini API key not configured. Please add GEMINI_API_KEY to your environment variables.',
+          code: 'MISSING_API_KEY'
+        },
+        { status: 500 }
+      );
+    }
+
+    // Call Gemini API
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Gemini API error:', errorData);
+      return NextResponse.json(
+        { 
+          error: 'Failed to generate routine from Gemini API',
+          details: errorData
+        },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    
+    // Extract the generated text from Gemini response
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!generatedText) {
+      return NextResponse.json(
+        { error: 'No content generated from Gemini' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      { routine: generatedText },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('POST error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error: ' + (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
