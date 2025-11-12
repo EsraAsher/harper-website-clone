@@ -154,8 +154,10 @@ Format the output in a friendly, readable manner with clear sections and emojis 
         const errorData = await response.json().catch(() => ({}));
         if (errorData.code === 'MISSING_API_KEY') {
           setError("⚠️ Gemini API key not configured. Please contact the administrator to add GEMINI_API_KEY to environment variables.");
+        } else if (response.status === 429) {
+          setError("⚠️ The AI service has reached its usage limit. Please try again in a few minutes or contact the administrator to upgrade the API plan.");
         } else {
-          setError("Failed to fetch routine. Please try again.");
+          setError("Failed to generate routine. Please try again.");
         }
       }
     } catch (err) {
