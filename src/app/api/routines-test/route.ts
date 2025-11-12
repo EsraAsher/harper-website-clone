@@ -90,50 +90,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if Gemini API key is configured
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Check if OpenAI API key is configured
+    const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { 
-          error: 'Gemini API key not configured. Please add GEMINI_API_KEY to your environment variables.',
+          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your environment variables.',
           code: 'MISSING_API_KEY'
         },
         { status: 500 }
       );
     }
 
-    // Call Gemini API
+    // Call OpenAI API
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+      'https://api.openai.com/v1/chat/completions',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          contents: [
+          model: 'gpt-4o-mini',
+          messages: [
             {
-              parts: [
-                {
-                  text: prompt,
-                },
-              ],
+              role: 'system',
+              content: 'You are a helpful pet care expert who creates comprehensive, detailed daily routines for pets in apartments. Provide structured, practical advice that pet owners can easily follow.'
+            },
+            {
+              role: 'user',
+              content: prompt,
             },
           ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
-          },
+          temperature: 0.7,
+          max_tokens: 2048,
         }),
       }
     );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('Gemini API error:', errorData);
+      console.error('OpenAI API error:', errorData);
       return NextResponse.json(
         { 
-          error: 'Failed to generate routine from Gemini API',
+          error: 'Failed to generate routine from OpenAI API',
           details: errorData
         },
         { status: response.status }
@@ -142,12 +143,12 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     
-    // Extract the generated text from Gemini response
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    // Extract the generated text from OpenAI response
+    const generatedText = data.choices?.[0]?.message?.content;
     
     if (!generatedText) {
       return NextResponse.json(
-        { error: 'No content generated from Gemini' },
+        { error: 'No content generated from OpenAI' },
         { status: 500 }
       );
     }
