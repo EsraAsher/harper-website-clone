@@ -90,21 +90,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if OpenAI API key is configured
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Check if Groq API key is configured
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { 
-          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your environment variables.',
+          error: 'Groq API key not configured. Please add GROQ_API_KEY to your environment variables.',
           code: 'MISSING_API_KEY'
         },
         { status: 500 }
       );
     }
 
-    // Call OpenAI API
+    // Call Groq API
     const response = await fetch(
-      'https://api.openai.com/v1/chat/completions',
+      'https://api.groq.com/openai/v1/chat/completions',
       {
         method: 'POST',
         headers: {
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'llama-3.1-70b-versatile',
           messages: [
             {
               role: 'system',
@@ -131,10 +131,10 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('OpenAI API error:', errorData);
+      console.error('Groq API error:', errorData);
       return NextResponse.json(
         { 
-          error: 'Failed to generate routine from OpenAI API',
+          error: 'Failed to generate routine from Groq API',
           details: errorData
         },
         { status: response.status }
@@ -143,12 +143,12 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     
-    // Extract the generated text from OpenAI response
+    // Extract the generated text from Groq response
     const generatedText = data.choices?.[0]?.message?.content;
     
     if (!generatedText) {
       return NextResponse.json(
-        { error: 'No content generated from OpenAI' },
+        { error: 'No content generated from Groq' },
         { status: 500 }
       );
     }
